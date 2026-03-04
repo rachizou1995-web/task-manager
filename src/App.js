@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 const TODAY = new Date();
 TODAY.setHours(0,0,0,0);
 const todayStr = TODAY.toISOString().slice(0,10);
-const todayDow  = TODAY.getDay();
+// const todayDow = TODAY.getDay();
 const todayDate = TODAY.getDate();
 const DOW_LABELS = ["日","月","火","水","木","金","土"];
 const MONTH_DATES = Array.from({length:28},(_,i)=>i+1);
