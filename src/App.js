@@ -395,7 +395,15 @@ function TaskModal({initial,defaultType,onSave,onDelete,onClose,isMobile}){
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App(){
-  const [tasks,setTasks]=useState(SEED);
+  const [tasks,setTasks]=useState(()=>{
+  try{
+    const saved=localStorage.getItem("tasks");
+    return saved?JSON.parse(saved):SEED;
+  }catch{return SEED;}
+});
+    useEffect(()=>{
+      localStorage.setItem("tasks",JSON.stringify(tasks));
+    },[tasks]);
   const [tab,setTab]=useState("home");
   const [modal,setModal]=useState(null);
   const isMobile=useIsMobile();
