@@ -102,7 +102,7 @@ function TaskCard({task,done,onToggle,onTap,showType=false,isMobile}){
   const daysLeft=task.deadline?Math.ceil((new Date(task.deadline)-TODAY)/86400000):null;
   const overdue=task.type==="adhoc"&&task.deadline&&task.deadline<todayStr;
   return(
-    <div className="task-card" onClick={()=>onTap(task)} style={{background:"#fff",borderRadius:isMobile?14:10,padding:isMobile?"14px 16px":"12px 16px",marginBottom:isMobile?10:8,display:"flex",alignItems:"center",gap:isMobile?14:12,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04)":"none",border:isMobile?"none":"1px solid #ECEEF2",opacity:done?0.52:1,borderLeft:`${isMobile?4:3}px solid ${done?"#E0E4EC":pm.dot}`,paddingLeft:isMobile?14:13,cursor:"pointer",transition:"background 0.12s,transform 0.1s",WebkitTapHighlightColor:"transparent"}}>
+    <div className="task-card" style={{background:"#fff",borderRadius:isMobile?14:10,padding:isMobile?"14px 16px":"12px 16px",marginBottom:isMobile?10:8,display:"flex",alignItems:"center",gap:isMobile?14:12,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04)":"none",border:isMobile?"none":"1px solid #ECEEF2",opacity:done?0.52:1,borderLeft:`${isMobile?4:3}px solid ${done?"#E0E4EC":pm.dot}`,paddingLeft:isMobile?14:13,cursor:"pointer",transition:"background 0.12s,transform 0.1s",WebkitTapHighlightColor:"transparent"}}>
       <div onClick={e=>{e.stopPropagation();onToggle(task.id);}} style={{width:isMobile?26:20,height:isMobile?26:20,borderRadius:isMobile?8:5,flexShrink:0,cursor:"pointer",border:`${isMobile?2:1.5}px solid ${done?tm.color:"#C8CDD4"}`,background:done?tm.color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
         {done&&<span style={{color:"#fff",fontSize:isMobile?13:10,fontWeight:900,lineHeight:1}}>✓</span>}
       </div>
@@ -115,7 +115,12 @@ function TaskCard({task,done,onToggle,onTap,showType=false,isMobile}){
           {task.note&&<span style={{fontSize:11,color:"#B0B8C1"}}>{task.note}</span>}
         </div>
       </div>
-      <span style={{color:"#C8CDD4",fontSize:14,flexShrink:0}}>›</span>
+     <button
+        onClick={e=>{e.stopPropagation();onTap(task);}}
+        style={{background:"#F0F4FF",border:"none",borderRadius:8,padding:"6px 12px",color:"#1B3A6B",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}
+        >
+        編集
+      </button> 
     </div>
   );
 }
