@@ -510,7 +510,7 @@ export default function App(){
             {TABS.map(t=>{
               const active=tab===t.id; const b=badge(t.id);
               return(
-                <button key={t.id} className="tab-btn" onClick={()=>setTab(t.id)} style={{flex:1,padding:"14px 2px 12px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,position:"relative"}}>
+                <button key={t.id} className="tab-btn" onClick={()=>setTab(t.id)} style={{flex:1,padding:"20px 2px 16px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,position:"relative"}}>
                   <div style={{position:"relative"}}>
                     <span style={{fontSize:17,lineHeight:1}}>{t.icon}</span>
                     {b>0&&<span style={{position:"absolute",top:-4,right:-7,background:active?"#1B3A6B":"#E74C3C",color:"#fff",borderRadius:10,fontSize:9,fontWeight:800,padding:"1px 5px",lineHeight:1.4}}>{b}</span>}
