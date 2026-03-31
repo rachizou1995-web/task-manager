@@ -64,12 +64,12 @@ const PRIORITY_META={
 };
 
 const TABS=[
-  {id:"home",    label:"今日",      icon:"⌂"},
-  {id:"calendar",label:"カレンダー",icon:"📆"},
-  {id:"daily",   label:"デイリー",  icon:"☀️"},
-  {id:"weekly",  label:"週次",      icon:"📅"},
-  {id:"monthly", label:"月次",      icon:"🗓"},
-  {id:"adhoc",   label:"その他",    icon:"📌"},
+  {id:"home",    label:"今日",        icon:"⌂"},
+  {id:"calendar",label:"カレンダー",  icon:"📆"},
+  {id:"daily",   label:"デイリー",    icon:"☀️"},
+  {id:"weekly",  label:"ウィークリー",icon:"📅"},
+  {id:"monthly", label:"マンスリー",  icon:"🗓"},
+  {id:"adhoc",   label:"アドホック",  icon:"📌"},
 ];
 
 let _id=100; const uid=()=>String(++_id);
