@@ -15,11 +15,7 @@ function startOfWeekForDate(d){
   x.setDate(d.getDate() - ((d.getDay()+6)%7));
   return dateStr(x);
 }
-function endOfWeekForDate(d){
-  const x = new Date(d);
-  x.setDate(d.getDate() - ((d.getDay()+6)%7) + 6);
-  return dateStr(x);
-}
+
 function monthKeyForDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 // cycleKey: unique string identifying the "cycle" a date belongs to per task type
@@ -192,73 +188,8 @@ function DayTaskList({targetDate,tasks,onToggle,onTap,isMobile}){
   );
 }
 
-// ─── Calendar View ─────────────────────────────────────────────────────────────
-function CalendarView({tasks,onToggle,onTap,isMobile}){
-  const [viewYear,setViewYear]=useState(TODAY.getFullYear());
-  const [viewMonth,setViewMonth]=useState(TODAY.getMonth());
-  const [selected,setSelected]=useState(new Date(TODAY));
 
-  function prevMonth(){if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11);}else setViewMonth(m=>m-1);}
-  function nextMonth(){if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0);}else setViewMonth(m=>m+1);}
 
-  const firstDay=new Date(viewYear,viewMonth,1).getDay();
-  const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
-  const cells=[];
-  for(let i=0;i<firstDay;i++) cells.push(null);
-  for(let d=1;d<=daysInMonth;d++) cells.push(new Date(viewYear,viewMonth,d));
-
-  const selStr=dateStr(selected);
-  const CELL=isMobile?44:48;
-
-  return(
-    <div>
-      <div style={{background:"#fff",borderRadius:isMobile?16:12,border:"1px solid #ECEEF2",padding:isMobile?"16px":"20px",marginBottom:isMobile?20:18,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06)":"none"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-          <button onClick={prevMonth} style={{width:34,height:34,borderRadius:8,border:"1px solid #ECEEF2",background:"#fff",cursor:"pointer",fontSize:16,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-          <div style={{fontSize:isMobile?16:15,fontWeight:800,color:"#1A1F36"}}>{viewYear}年 {viewMonth+1}月</div>
-          <button onClick={nextMonth} style={{width:34,height:34,borderRadius:8,border:"1px solid #ECEEF2",background:"#fff",cursor:"pointer",fontSize:16,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:6}}>
-          {DOW_LABELS.map((d,i)=>(<div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,color:i===0?"#E74C3C":i===6?"#2A5298":"#9AA3AF",padding:"4px 0"}}>{d}</div>))}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
-          {cells.map((d,i)=>{
-            if(!d) return <div key={`e${i}`}/>;
-            const ds=dateStr(d);
-            const isSelected=ds===selStr;
-            const isT=ds===todayStr;
-            const cnt=tasks.filter(t=>isActiveOn(t,d)).length;
-            const dnCnt=tasks.filter(t=>isActiveOn(t,d)&&isDoneForDate(t,d)).length;
-            const isDow0=d.getDay()===0; const isDow6=d.getDay()===6;
-            const allDone=cnt>0&&dnCnt===cnt;
-            return(
-              <button key={ds} onClick={()=>setSelected(new Date(d))} style={{height:CELL,borderRadius:10,border:"none",cursor:"pointer",background:isSelected?"#1B3A6B":isT?"#EEF3FC":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,transition:"background 0.12s",WebkitTapHighlightColor:"transparent"}}>
-                <span style={{fontSize:isMobile?14:13,fontWeight:isT||isSelected?800:400,color:isSelected?"#fff":isT?"#1B3A6B":isDow0?"#E74C3C":isDow6?"#2A5298":"#1A1F36",lineHeight:1}}>{d.getDate()}</span>
-                {cnt>0&&(
-                  <div style={{display:"flex",gap:2,alignItems:"center"}}>
-                    {allDone
-                      ?<span style={{fontSize:8,color:isSelected?"rgba(255,255,255,0.7)":"#27AE60"}}>●</span>
-                      :<>{Array.from({length:Math.min(cnt,3)}).map((_,j)=>(<span key={j} style={{width:4,height:4,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.6)":j<dnCnt?"#27AE60":"#E1E4E8",display:"inline-block"}}/>))}{cnt>3&&<span style={{fontSize:7,color:isSelected?"rgba(255,255,255,0.6)":"#9AA3AF"}}>+</span>}</>
-                    }
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{display:"flex",gap:14,marginTop:12,paddingTop:10,borderTop:"1px solid #F3F4F6",flexWrap:"wrap"}}>
-          {[{dot:"#27AE60",label:"完了"},{dot:"#E1E4E8",label:"未完了"},{bg:"#EEF3FC",label:"今日"},{bg:"#1B3A6B",label:"選択中",color:"#fff"}].map(l=>(
-            <div key={l.label} style={{display:"flex",alignItems:"center",gap:5}}>
-              {l.dot?<span style={{width:8,height:8,borderRadius:"50%",background:l.dot,display:"inline-block"}}/>:<span style={{width:16,height:16,borderRadius:5,background:l.bg,display:"inline-flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:8,color:l.color||"#1B3A6B"}}>日</span></span>}
-              <span style={{fontSize:10,color:"#9AA3AF",fontWeight:600}}>{l.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <DayTaskList targetDate={selected} tasks={tasks} onToggle={onToggle} onTap={onTap} isMobile={isMobile}/>
-    </div>
-  );
-}
 
 // ─── Type View ────────────────────────────────────────────────────────────────
 function TypeView({type,tasks,onToggle,onTap,onAdd,isMobile}){
