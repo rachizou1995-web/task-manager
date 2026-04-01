@@ -290,7 +290,6 @@ export default function App(){
   const [tab,setTab]=useState("home");
   const [modal,setModal]=useState(null);
   // カレンダーで選択中の日付をAppで管理し、toggleに渡す
-  const [calDate,setCalDate]=useState(new Date(TODAY));
   const isMobile=useIsMobile();
 
   useEffect(()=>{localStorage.setItem("tasks",JSON.stringify(tasks));},[tasks]);
