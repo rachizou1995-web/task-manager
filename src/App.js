@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 const TODAY = new Date();
 TODAY.setHours(0,0,0,0);
 const todayStr = TODAY.toISOString().slice(0,10);
-// const todayDow = TODAY.getDay();
 const todayDate = TODAY.getDate();
 const DOW_LABELS = ["日","月","火","水","木","金","土"];
 const MONTH_DATES = Array.from({length:28},(_,i)=>i+1);
@@ -16,8 +15,22 @@ function startOfWeekForDate(d){
   x.setDate(d.getDate() - ((d.getDay()+6)%7));
   return dateStr(x);
 }
+function endOfWeekForDate(d){
+  const x = new Date(d);
+  x.setDate(d.getDate() - ((d.getDay()+6)%7) + 6);
+  return dateStr(x);
+}
+function monthKeyForDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
-// Is this recurring task active on a given Date?
+// cycleKey: unique string identifying the "cycle" a date belongs to per task type
+function cycleKey(task, d){
+  if(task.type==="daily")   return dateStr(d);
+  if(task.type==="weekly")  return `w_${startOfWeekForDate(d)}`;
+  if(task.type==="monthly") return `m_${monthKeyForDate(d)}`;
+  if(task.type==="adhoc")   return "adhoc";
+  return dateStr(d);
+}
+
 function isActiveOn(task, d){
   const dDow  = d.getDay();
   const dDate = d.getDate();
@@ -29,22 +42,10 @@ function isActiveOn(task, d){
   return false;
 }
 
-// Was this task "done" for a specific date's cycle?
+// completions is an object: { [cycleKey]: true }
 function isDoneForDate(task, d){
-  if(!task.completedAt) return false;
-  const dStr = dateStr(d);
-  if(task.type==="daily")   return task.completedAt===dStr;
-  if(task.type==="weekly"){
-    const w = startOfWeekForDate(d);
-    const end = new Date(d); end.setDate(d.getDate()-(d.getDay()+6)%7+6);
-    return task.completedAt>=w && task.completedAt<=dateStr(end);
-  }
-  if(task.type==="monthly"){
-    const c = new Date(task.completedAt);
-    return c.getMonth()===d.getMonth() && c.getFullYear()===d.getFullYear();
-  }
-  if(task.type==="adhoc") return !!task.completedAt;
-  return false;
+  const key = cycleKey(task, d);
+  return !!(task.completions && task.completions[key]);
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -75,14 +76,14 @@ const TABS=[
 let _id=100; const uid=()=>String(++_id);
 
 const SEED=[
-  {id:uid(),type:"daily",  title:"メールチェック・返信",         priority:"high",  completedAt:null,dow:[],   monthDay:1, deadline:"",note:""},
-  {id:uid(),type:"daily",  title:"Slackの未読確認",              priority:"medium",completedAt:null,dow:[],   monthDay:1, deadline:"",note:""},
-  {id:uid(),type:"weekly", title:"週次レポート作成",              priority:"high",  completedAt:null,dow:[1],  monthDay:1, deadline:"",note:""},
-  {id:uid(),type:"weekly", title:"チームミーティング準備",        priority:"medium",completedAt:null,dow:[3,5],monthDay:1, deadline:"",note:""},
-  {id:uid(),type:"monthly",title:"月次損益レポート",              priority:"high",  completedAt:null,dow:[],   monthDay:5, deadline:"",note:""},
-  {id:uid(),type:"monthly",title:"経費精算",                      priority:"medium",completedAt:null,dow:[],   monthDay:25,deadline:"",note:""},
-  {id:uid(),type:"adhoc",  title:"Q2事業計画レビュー",            priority:"high",  completedAt:null,dow:[],   monthDay:1, deadline:"2026-03-10",note:"役員会議前に確認"},
-  {id:uid(),type:"adhoc",  title:"新入社員オリエンテーション資料",priority:"medium",completedAt:null,dow:[],   monthDay:1, deadline:"2026-03-15",note:""},
+  {id:uid(),type:"daily",  title:"メールチェック・返信",         priority:"high",  completions:{},dow:[],   monthDay:1, deadline:"",note:""},
+  {id:uid(),type:"daily",  title:"Slackの未読確認",              priority:"medium",completions:{},dow:[],   monthDay:1, deadline:"",note:""},
+  {id:uid(),type:"weekly", title:"週次レポート作成",              priority:"high",  completions:{},dow:[1],  monthDay:1, deadline:"",note:""},
+  {id:uid(),type:"weekly", title:"チームミーティング準備",        priority:"medium",completions:{},dow:[3,5],monthDay:1, deadline:"",note:""},
+  {id:uid(),type:"monthly",title:"月次損益レポート",              priority:"high",  completions:{},dow:[],   monthDay:5, deadline:"",note:""},
+  {id:uid(),type:"monthly",title:"経費精算",                      priority:"medium",completions:{},dow:[],   monthDay:25,deadline:"",note:""},
+  {id:uid(),type:"adhoc",  title:"Q2事業計画レビュー",            priority:"high",  completions:{},dow:[],   monthDay:1, deadline:"2026-03-10",note:"役員会議前に確認"},
+  {id:uid(),type:"adhoc",  title:"新入社員オリエンテーション資料",priority:"medium",completions:{},dow:[],   monthDay:1, deadline:"2026-03-15",note:""},
 ];
 
 // ─── useBreakpoint ─────────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ function TaskCard({task,done,onToggle,onTap,showType=false,isMobile}){
   const daysLeft=task.deadline?Math.ceil((new Date(task.deadline)-TODAY)/86400000):null;
   const overdue=task.type==="adhoc"&&task.deadline&&task.deadline<todayStr;
   return(
-    <div className="task-card" style={{background:"#fff",borderRadius:isMobile?14:10,padding:isMobile?"14px 16px":"12px 16px",marginBottom:isMobile?10:8,display:"flex",alignItems:"center",gap:isMobile?14:12,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04)":"none",border:isMobile?"none":"1px solid #ECEEF2",opacity:done?0.52:1,borderLeft:`${isMobile?4:3}px solid ${done?"#E0E4EC":pm.dot}`,paddingLeft:isMobile?14:13,cursor:"pointer",transition:"background 0.12s,transform 0.1s",WebkitTapHighlightColor:"transparent"}}>
+    <div className="task-card" style={{background:"#fff",borderRadius:isMobile?14:10,padding:isMobile?"14px 16px":"12px 16px",marginBottom:isMobile?10:8,display:"flex",alignItems:"center",gap:isMobile?14:12,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06),0 0 0 1px rgba(0,0,0,0.04)":"none",border:isMobile?"none":"1px solid #ECEEF2",opacity:done?0.52:1,borderLeft:`${isMobile?4:3}px solid ${done?"#E0E4EC":pm.dot}`,paddingLeft:isMobile?14:13,transition:"background 0.12s",WebkitTapHighlightColor:"transparent"}}>
       <div onClick={e=>{e.stopPropagation();onToggle(task.id);}} style={{width:isMobile?26:20,height:isMobile?26:20,borderRadius:isMobile?8:5,flexShrink:0,cursor:"pointer",border:`${isMobile?2:1.5}px solid ${done?tm.color:"#C8CDD4"}`,background:done?tm.color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.15s"}}>
         {done&&<span style={{color:"#fff",fontSize:isMobile?13:10,fontWeight:900,lineHeight:1}}>✓</span>}
       </div>
@@ -115,12 +116,7 @@ function TaskCard({task,done,onToggle,onTap,showType=false,isMobile}){
           {task.note&&<span style={{fontSize:11,color:"#B0B8C1"}}>{task.note}</span>}
         </div>
       </div>
-     <button
-        onClick={e=>{e.stopPropagation();onTap(task);}}
-        style={{background:"#F0F4FF",border:"none",borderRadius:8,padding:"6px 12px",color:"#1B3A6B",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}
-        >
-        編集
-      </button> 
+      <button onClick={e=>{e.stopPropagation();onTap(task);}} style={{background:"#F0F4FF",border:"none",borderRadius:8,padding:"6px 12px",color:"#1B3A6B",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>編集</button>
     </div>
   );
 }
@@ -143,7 +139,7 @@ function PriorityGroup({priority,items,onToggle,onTap,showType,isMobile}){
   );
 }
 
-// ─── Day Task List (shared by Home + Calendar) ─────────────────────────────────
+// ─── Day Task List ─────────────────────────────────────────────────────────────
 function DayTaskList({targetDate,tasks,onToggle,onTap,isMobile}){
   const isToday=dateStr(targetDate)===todayStr;
   const dayTasks=tasks.filter(t=>isActiveOn(t,targetDate));
@@ -157,7 +153,6 @@ function DayTaskList({targetDate,tasks,onToggle,onTap,isMobile}){
 
   return(
     <div>
-      {/* Hero */}
       <div style={{background:"linear-gradient(135deg,#1B3A6B 0%,#2A5298 100%)",borderRadius:isMobile?20:14,padding:isMobile?"22px 20px 20px":"20px 24px",marginBottom:isMobile?24:20,color:"#fff"}}>
         <div style={{fontSize:12,fontWeight:600,opacity:0.6,letterSpacing:"0.06em",marginBottom:4}}>
           {targetDate.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric",weekday:"short"})}
@@ -165,14 +160,10 @@ function DayTaskList({targetDate,tasks,onToggle,onTap,isMobile}){
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14}}>
           <div>
-            <div style={{fontSize:isMobile?26:22,fontWeight:800,lineHeight:1.1,marginBottom:4}}>
-              {isToday?"今日のタスク":"この日のタスク"}
-            </div>
+            <div style={{fontSize:isMobile?26:22,fontWeight:800,lineHeight:1.1,marginBottom:4}}>{isToday?"今日のタスク":"この日のタスク"}</div>
             <div style={{fontSize:13,opacity:0.7}}>{doneCount} / {total} 完了</div>
           </div>
-          <div style={{fontFamily:"monospace",fontSize:isMobile?42:36,fontWeight:800,lineHeight:1,color:pct===100?"#4ADE80":"#fff"}}>
-            {pct}<span style={{fontSize:isMobile?18:16}}>%</span>
-          </div>
+          <div style={{fontFamily:"monospace",fontSize:isMobile?42:36,fontWeight:800,lineHeight:1,color:pct===100?"#4ADE80":"#fff"}}>{pct}<span style={{fontSize:isMobile?18:16}}>%</span></div>
         </div>
         <div style={{height:5,background:"rgba(255,255,255,0.2)",borderRadius:3,overflow:"hidden"}}>
           <div style={{height:"100%",width:`${pct}%`,background:pct===100?"#4ADE80":"rgba(255,255,255,0.85)",borderRadius:3,transition:"width 0.5s ease"}}/>
@@ -210,72 +201,44 @@ function CalendarView({tasks,onToggle,onTap,isMobile}){
   function prevMonth(){if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11);}else setViewMonth(m=>m-1);}
   function nextMonth(){if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0);}else setViewMonth(m=>m+1);}
 
-  // Build calendar grid
   const firstDay=new Date(viewYear,viewMonth,1).getDay();
   const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
   const cells=[];
   for(let i=0;i<firstDay;i++) cells.push(null);
   for(let d=1;d<=daysInMonth;d++) cells.push(new Date(viewYear,viewMonth,d));
 
-  // Dot density per day
-  function taskCountForDay(d){
-    if(!d) return 0;
-    return tasks.filter(t=>isActiveOn(t,d)).length;
-  }
-  function doneCountForDay(d){
-    if(!d) return 0;
-    return tasks.filter(t=>isActiveOn(t,d)&&isDoneForDate(t,d)).length;
-  }
-
   const selStr=dateStr(selected);
   const CELL=isMobile?44:48;
 
   return(
     <div>
-      {/* Calendar card */}
       <div style={{background:"#fff",borderRadius:isMobile?16:12,border:"1px solid #ECEEF2",padding:isMobile?"16px":"20px",marginBottom:isMobile?20:18,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06)":"none"}}>
-        {/* Month header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <button onClick={prevMonth} style={{width:34,height:34,borderRadius:8,border:"1px solid #ECEEF2",background:"#fff",cursor:"pointer",fontSize:16,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-          <div style={{fontSize:isMobile?16:15,fontWeight:800,color:"#1A1F36"}}>
-            {viewYear}年 {viewMonth+1}月
-          </div>
+          <div style={{fontSize:isMobile?16:15,fontWeight:800,color:"#1A1F36"}}>{viewYear}年 {viewMonth+1}月</div>
           <button onClick={nextMonth} style={{width:34,height:34,borderRadius:8,border:"1px solid #ECEEF2",background:"#fff",cursor:"pointer",fontSize:16,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
         </div>
-
-        {/* DOW headers */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:6}}>
-          {DOW_LABELS.map((d,i)=>(
-            <div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,color:i===0?"#E74C3C":i===6?"#2A5298":"#9AA3AF",padding:"4px 0"}}>{d}</div>
-          ))}
+          {DOW_LABELS.map((d,i)=>(<div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,color:i===0?"#E74C3C":i===6?"#2A5298":"#9AA3AF",padding:"4px 0"}}>{d}</div>))}
         </div>
-
-        {/* Day cells */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
           {cells.map((d,i)=>{
             if(!d) return <div key={`e${i}`}/>;
             const ds=dateStr(d);
             const isSelected=ds===selStr;
             const isT=ds===todayStr;
-            const cnt=taskCountForDay(d);
-            const dnCnt=doneCountForDay(d);
+            const cnt=tasks.filter(t=>isActiveOn(t,d)).length;
+            const dnCnt=tasks.filter(t=>isActiveOn(t,d)&&isDoneForDate(t,d)).length;
             const isDow0=d.getDay()===0; const isDow6=d.getDay()===6;
             const allDone=cnt>0&&dnCnt===cnt;
             return(
               <button key={ds} onClick={()=>setSelected(new Date(d))} style={{height:CELL,borderRadius:10,border:"none",cursor:"pointer",background:isSelected?"#1B3A6B":isT?"#EEF3FC":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,transition:"background 0.12s",WebkitTapHighlightColor:"transparent"}}>
-                <span style={{fontSize:isMobile?14:13,fontWeight:isT||isSelected?800:400,color:isSelected?"#fff":isT?"#1B3A6B":isDow0?"#E74C3C":isDow6?"#2A5298":"#1A1F36",lineHeight:1}}>
-                  {d.getDate()}
-                </span>
+                <span style={{fontSize:isMobile?14:13,fontWeight:isT||isSelected?800:400,color:isSelected?"#fff":isT?"#1B3A6B":isDow0?"#E74C3C":isDow6?"#2A5298":"#1A1F36",lineHeight:1}}>{d.getDate()}</span>
                 {cnt>0&&(
                   <div style={{display:"flex",gap:2,alignItems:"center"}}>
                     {allDone
                       ?<span style={{fontSize:8,color:isSelected?"rgba(255,255,255,0.7)":"#27AE60"}}>●</span>
-                      :<>
-                        {Array.from({length:Math.min(cnt,3)}).map((_,j)=>(
-                          <span key={j} style={{width:4,height:4,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.6)":j<dnCnt?"#27AE60":"#E1E4E8",display:"inline-block"}}/>
-                        ))}
-                        {cnt>3&&<span style={{fontSize:7,color:isSelected?"rgba(255,255,255,0.6)":"#9AA3AF"}}>+</span>}
-                      </>
+                      :<>{Array.from({length:Math.min(cnt,3)}).map((_,j)=>(<span key={j} style={{width:4,height:4,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.6)":j<dnCnt?"#27AE60":"#E1E4E8",display:"inline-block"}}/>))}{cnt>3&&<span style={{fontSize:7,color:isSelected?"rgba(255,255,255,0.6)":"#9AA3AF"}}>+</span>}</>
                     }
                   </div>
                 )}
@@ -283,8 +246,6 @@ function CalendarView({tasks,onToggle,onTap,isMobile}){
             );
           })}
         </div>
-
-        {/* Legend */}
         <div style={{display:"flex",gap:14,marginTop:12,paddingTop:10,borderTop:"1px solid #F3F4F6",flexWrap:"wrap"}}>
           {[{dot:"#27AE60",label:"完了"},{dot:"#E1E4E8",label:"未完了"},{bg:"#EEF3FC",label:"今日"},{bg:"#1B3A6B",label:"選択中",color:"#fff"}].map(l=>(
             <div key={l.label} style={{display:"flex",alignItems:"center",gap:5}}>
@@ -294,14 +255,12 @@ function CalendarView({tasks,onToggle,onTap,isMobile}){
           ))}
         </div>
       </div>
-
-      {/* Selected day tasks */}
       <DayTaskList targetDate={selected} tasks={tasks} onToggle={onToggle} onTap={onTap} isMobile={isMobile}/>
     </div>
   );
 }
 
-// ─── Type view ────────────────────────────────────────────────────────────────
+// ─── Type View ────────────────────────────────────────────────────────────────
 function TypeView({type,tasks,onToggle,onTap,onAdd,isMobile}){
   const m=TYPE_META[type];
   const list=[...tasks.filter(t=>t.type===type)].sort((a,b)=>PRIORITY_ORDER[a.priority]-PRIORITY_ORDER[b.priority]);
@@ -353,20 +312,14 @@ function TaskModal({initial,defaultType,onSave,onDelete,onClose,isMobile}){
       <div style={field}>
         <label style={lbl}>種別</label>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:isMobile?8:6}}>
-          {Object.entries(TYPE_META).map(([k,m])=>(
-            <button key={k} onClick={()=>set("type",k)} style={{padding:isMobile?"10px 4px":"8px 4px",borderRadius:isMobile?10:7,border:`2px solid ${form.type===k?m.color:"#E1E4E8"}`,background:form.type===k?m.bg:"#fff",color:form.type===k?m.color:"#9AA3AF",fontSize:11,fontWeight:700,cursor:"pointer",lineHeight:1.5}}>
-              {m.icon}<br/>{m.label}
-            </button>
-          ))}
+          {Object.entries(TYPE_META).map(([k,m])=>(<button key={k} onClick={()=>set("type",k)} style={{padding:isMobile?"10px 4px":"8px 4px",borderRadius:isMobile?10:7,border:`2px solid ${form.type===k?m.color:"#E1E4E8"}`,background:form.type===k?m.bg:"#fff",color:form.type===k?m.color:"#9AA3AF",fontSize:11,fontWeight:700,cursor:"pointer",lineHeight:1.5}}>{m.icon}<br/>{m.label}</button>))}
         </div>
       </div>
       <div style={field}><label style={lbl}>タスク名</label><input value={form.title} onChange={e=>set("title",e.target.value)} placeholder="タスクの内容を入力..." style={inp} autoFocus/></div>
       <div style={field}>
         <label style={lbl}>優先度</label>
         <div style={{display:"flex",gap:8}}>
-          {Object.entries(PRIORITY_META).map(([k,m])=>(
-            <button key={k} onClick={()=>set("priority",k)} style={{flex:1,padding:isMobile?"12px":"9px",borderRadius:isMobile?10:7,border:`2px solid ${form.priority===k?m.color:"#E1E4E8"}`,background:form.priority===k?m.bg:"#fff",color:form.priority===k?m.color:"#9AA3AF",fontSize:isMobile?14:12,fontWeight:700,cursor:"pointer"}}>{m.label}</button>
-          ))}
+          {Object.entries(PRIORITY_META).map(([k,m])=>(<button key={k} onClick={()=>set("priority",k)} style={{flex:1,padding:isMobile?"12px":"9px",borderRadius:isMobile?10:7,border:`2px solid ${form.priority===k?m.color:"#E1E4E8"}`,background:form.priority===k?m.bg:"#fff",color:form.priority===k?m.color:"#9AA3AF",fontSize:isMobile?14:12,fontWeight:700,cursor:"pointer"}}>{m.label}</button>))}
         </div>
       </div>
       {form.type==="weekly"&&(
@@ -401,25 +354,36 @@ function TaskModal({initial,defaultType,onSave,onDelete,onClose,isMobile}){
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App(){
   const [tasks,setTasks]=useState(()=>{
-  try{
-    const saved=localStorage.getItem("tasks");
-    return saved?JSON.parse(saved):SEED;
-  }catch{return SEED;}
-});
-    useEffect(()=>{
-      localStorage.setItem("tasks",JSON.stringify(tasks));
-    },[tasks]);
+    try{ const s=localStorage.getItem("tasks"); return s?JSON.parse(s):SEED; }catch{return SEED;}
+  });
   const [tab,setTab]=useState("home");
   const [modal,setModal]=useState(null);
+  // カレンダーで選択中の日付をAppで管理し、toggleに渡す
+  const [calDate,setCalDate]=useState(new Date(TODAY));
   const isMobile=useIsMobile();
 
-  function toggle(id){
-    setTasks(ts=>ts.map(t=>t.id!==id?t:{...t,completedAt:isDoneForDate(t,TODAY)?null:todayStr}));
+  useEffect(()=>{localStorage.setItem("tasks",JSON.stringify(tasks));},[tasks]);
+
+  // toggleは対象日付のcycleKeyを使って完了を切り替える
+  function toggle(id, targetDate){
+    const d = targetDate || TODAY;
+    setTasks(ts=>ts.map(t=>{
+      if(t.id!==id) return t;
+      const key=cycleKey(t,d);
+      const completions={...(t.completions||{})};
+      if(completions[key]) delete completions[key];
+      else completions[key]=dateStr(d);
+      return {...t,completions};
+    }));
   }
+
   function openAdd(type){setModal({mode:"add",defaultType:type??(tab==="home"||tab==="calendar"?"daily":tab),task:null});}
   function openEdit(task){setModal({mode:"edit",defaultType:task.type,task:{...task}});}
   function saveTask(form){
-    setTasks(ts=>modal.mode==="edit"?ts.map(t=>t.id===form.id?{...form}:t):[...ts,{...form,id:uid(),completedAt:null}]);
+    setTasks(ts=>modal.mode==="edit"
+      ?ts.map(t=>t.id===form.id?{...form,completions:form.completions||{}}:t)
+      :[...ts,{...form,id:uid(),completions:{}}]
+    );
     setModal(null);
   }
   function deleteTask(id){setTasks(ts=>ts.filter(t=>t.id!==id));setModal(null);}
@@ -431,11 +395,14 @@ export default function App(){
     return tasks.filter(t=>t.type===p).length;
   };
 
+  // ホームとカレンダーではtoggle時に日付を渡す
+  const toggleForDate=(d)=>(id)=>toggle(id,d);
+
   const content=(
     <>
-      {tab==="home"    && <DayTaskList targetDate={TODAY} tasks={tasks} onToggle={toggle} onTap={openEdit} isMobile={isMobile}/>}
-      {tab==="calendar"&& <CalendarView tasks={tasks} onToggle={toggle} onTap={openEdit} isMobile={isMobile}/>}
-      {["daily","weekly","monthly","adhoc"].includes(tab)&&<TypeView type={tab} tasks={tasks} onToggle={toggle} onTap={openEdit} onAdd={()=>openAdd(tab)} isMobile={isMobile}/>}
+      {tab==="home"    && <DayTaskList targetDate={TODAY} tasks={tasks} onToggle={toggleForDate(TODAY)} onTap={openEdit} isMobile={isMobile}/>}
+      {tab==="calendar"&& <CalendarViewWithDate tasks={tasks} onToggle={toggle} onTap={openEdit} isMobile={isMobile}/>}
+      {["daily","weekly","monthly","adhoc"].includes(tab)&&<TypeView type={tab} tasks={tasks} onToggle={toggleForDate(TODAY)} onTap={openEdit} onAdd={()=>openAdd(tab)} isMobile={isMobile}/>}
     </>
   );
 
@@ -447,7 +414,6 @@ export default function App(){
         body{background:#F4F6FA;}
         ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px;}
         .task-card:hover{background:#F5F8FF!important;}
-        .task-card:active{transform:scale(0.985);}
         .nav-btn{transition:all 0.12s;cursor:pointer;border:none;text-align:left;}
         .nav-btn:hover{background:rgba(255,255,255,0.13)!important;}
         .tab-btn:active{opacity:0.65;}
@@ -465,7 +431,6 @@ export default function App(){
         button{font-family:inherit;}
       `}</style>
 
-      {/* ── PC ── */}
       {!isMobile&&(
         <div style={{display:"flex",minHeight:"100vh"}}>
           <div style={{width:220,background:"#1B3A6B",display:"flex",flexDirection:"column",flexShrink:0,minHeight:"100vh"}}>
@@ -499,7 +464,6 @@ export default function App(){
         </div>
       )}
 
-      {/* ── Mobile ── */}
       {isMobile&&(
         <div style={{maxWidth:430,margin:"0 auto",minHeight:"100vh",display:"flex",flexDirection:"column"}}>
           <div style={{background:"#fff",padding:"16px 20px 12px",position:"sticky",top:0,zIndex:100,borderBottom:"1px solid #F0F2F5",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -515,7 +479,7 @@ export default function App(){
             {TABS.map(t=>{
               const active=tab===t.id; const b=badge(t.id);
               return(
-                <button key={t.id} className="tab-btn" onClick={()=>setTab(t.id)} style={{flex:1,padding:"20px 2px 16px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,position:"relative"}}>
+                <button key={t.id} className="tab-btn" onClick={()=>setTab(t.id)} style={{flex:1,padding:"14px 2px 12px",background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4,position:"relative"}}>
                   <div style={{position:"relative"}}>
                     <span style={{fontSize:17,lineHeight:1}}>{t.icon}</span>
                     {b>0&&<span style={{position:"absolute",top:-4,right:-7,background:active?"#1B3A6B":"#E74C3C",color:"#fff",borderRadius:10,fontSize:9,fontWeight:800,padding:"1px 5px",lineHeight:1.4}}>{b}</span>}
@@ -530,6 +494,75 @@ export default function App(){
       )}
 
       {modal&&<TaskModal initial={modal.task} defaultType={modal.defaultType} onSave={saveTask} onDelete={deleteTask} onClose={()=>setModal(null)} isMobile={isMobile}/>}
+    </div>
+  );
+}
+
+// カレンダーは選択日をローカルに持ち、toggleに日付を渡す
+function CalendarViewWithDate({tasks,onToggle,onTap,isMobile}){
+  const [viewYear,setViewYear]=useState(TODAY.getFullYear());
+  const [viewMonth,setViewMonth]=useState(TODAY.getMonth());
+  const [selected,setSelected]=useState(new Date(TODAY));
+
+  function prevMonth(){if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11);}else setViewMonth(m=>m-1);}
+  function nextMonth(){if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0);}else setViewMonth(m=>m+1);}
+
+  const firstDay=new Date(viewYear,viewMonth,1).getDay();
+  const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDay;i++) cells.push(null);
+  for(let d=1;d<=daysInMonth;d++) cells.push(new Date(viewYear,viewMonth,d));
+
+  const selStr=dateStr(selected);
+  const CELL=isMobile?44:48;
+  const toggleForSelected=(id)=>onToggle(id,selected);
+
+  return(
+    <div>
+      <div style={{background:"#fff",borderRadius:isMobile?16:12,border:"1px solid #ECEEF2",padding:isMobile?"16px":"20px",marginBottom:isMobile?20:18,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06)":"none"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <button onClick={prevMonth} style={{width:34,height:34,borderRadius:8,border:"1px solid #ECEEF2",background:"#fff",cursor:"pointer",fontSize:16,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+          <div style={{fontSize:isMobile?16:15,fontWeight:800,color:"#1A1F36"}}>{viewYear}年 {viewMonth+1}月</div>
+          <button onClick={nextMonth} style={{width:34,height:34,borderRadius:8,border:"1px solid #ECEEF2",background:"#fff",cursor:"pointer",fontSize:16,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",marginBottom:6}}>
+          {DOW_LABELS.map((d,i)=>(<div key={d} style={{textAlign:"center",fontSize:11,fontWeight:700,color:i===0?"#E74C3C":i===6?"#2A5298":"#9AA3AF",padding:"4px 0"}}>{d}</div>))}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+          {cells.map((d,i)=>{
+            if(!d) return <div key={`e${i}`}/>;
+            const ds=dateStr(d);
+            const isSelected=ds===selStr;
+            const isT=ds===todayStr;
+            const cnt=tasks.filter(t=>isActiveOn(t,d)).length;
+            const dnCnt=tasks.filter(t=>isActiveOn(t,d)&&isDoneForDate(t,d)).length;
+            const isDow0=d.getDay()===0; const isDow6=d.getDay()===6;
+            const allDone=cnt>0&&dnCnt===cnt;
+            return(
+              <button key={ds} onClick={()=>setSelected(new Date(d))} style={{height:CELL,borderRadius:10,border:"none",cursor:"pointer",background:isSelected?"#1B3A6B":isT?"#EEF3FC":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,transition:"background 0.12s",WebkitTapHighlightColor:"transparent"}}>
+                <span style={{fontSize:isMobile?14:13,fontWeight:isT||isSelected?800:400,color:isSelected?"#fff":isT?"#1B3A6B":isDow0?"#E74C3C":isDow6?"#2A5298":"#1A1F36",lineHeight:1}}>{d.getDate()}</span>
+                {cnt>0&&(
+                  <div style={{display:"flex",gap:2,alignItems:"center"}}>
+                    {allDone
+                      ?<span style={{fontSize:8,color:isSelected?"rgba(255,255,255,0.7)":"#27AE60"}}>●</span>
+                      :<>{Array.from({length:Math.min(cnt,3)}).map((_,j)=>(<span key={j} style={{width:4,height:4,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.6)":j<dnCnt?"#27AE60":"#E1E4E8",display:"inline-block"}}/>))}{cnt>3&&<span style={{fontSize:7,color:isSelected?"rgba(255,255,255,0.6)":"#9AA3AF"}}>+</span>}</>
+                    }
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{display:"flex",gap:14,marginTop:12,paddingTop:10,borderTop:"1px solid #F3F4F6",flexWrap:"wrap"}}>
+          {[{dot:"#27AE60",label:"完了"},{dot:"#E1E4E8",label:"未完了"},{bg:"#EEF3FC",label:"今日"},{bg:"#1B3A6B",label:"選択中",color:"#fff"}].map(l=>(
+            <div key={l.label} style={{display:"flex",alignItems:"center",gap:5}}>
+              {l.dot?<span style={{width:8,height:8,borderRadius:"50%",background:l.dot,display:"inline-block"}}/>:<span style={{width:16,height:16,borderRadius:5,background:l.bg,display:"inline-flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:8,color:l.color||"#1B3A6B"}}>日</span></span>}
+              <span style={{fontSize:10,color:"#9AA3AF",fontWeight:600}}>{l.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <DayTaskList targetDate={selected} tasks={tasks} onToggle={toggleForSelected} onTap={onTap} isMobile={isMobile}/>
     </div>
   );
 }
