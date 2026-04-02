@@ -451,15 +451,15 @@ function CalendarViewWithDate({tasks,setTasks,onTap,isMobile}){
   const selStr=dateStr(selected);
   const CELL=isMobile?44:48;
   const toggleForSelected=(id)=>{
-  setTasks(ts=>ts.map(t=>{
-    if(t.id!==id) return t;
-    const key=`cal_${dateStr(selected)}`;
-    const completions={...(t.completions||{})};
-    if(completions[key]) delete completions[key];
-    else completions[key]=dateStr(selected);
-    return {...t,completions};
-  }));
-};
+    setTasks(ts=>ts.map(t=>{
+      if(t.id!==id) return t;
+      const key=cycleKey(t,selected);
+      const completions={...(t.completions||{})};
+      if(completions[key]) delete completions[key];
+      else completions[key]=dateStr(selected);
+      return {...t,completions};
+    }));
+  };
   return(
     <div>
       <div style={{background:"#fff",borderRadius:isMobile?16:12,border:"1px solid #ECEEF2",padding:isMobile?"16px":"20px",marginBottom:isMobile?20:18,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06)":"none"}}>
@@ -504,7 +504,6 @@ function CalendarViewWithDate({tasks,setTasks,onTap,isMobile}){
           ))}
         </div>
       </div>
-      <DayTaskList targetDate={selected} tasks={tasks} onToggle={toggleForSelected} onTap={onTap} isMobile={isMobile} isCalendar/>
-    </div>
+     <DayTaskList targetDate={selected} tasks={tasks} onToggle={toggleForSelected} onTap={onTap} isMobile={isMobile} isCalendar={false}/>    </div>
   );
 }
