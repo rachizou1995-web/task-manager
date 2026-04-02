@@ -136,10 +136,15 @@ function PriorityGroup({priority,items,onToggle,onTap,showType,isMobile}){
 }
 
 // ─── Day Task List ─────────────────────────────────────────────────────────────
-function DayTaskList({targetDate,tasks,onToggle,onTap,isMobile}){
-  const isToday=dateStr(targetDate)===todayStr;
+  function DayTaskList({targetDate,tasks,onToggle,onTap,isMobile,isCalendar}){  const isToday=dateStr(targetDate)===todayStr;
   const dayTasks=tasks.filter(t=>isActiveOn(t,targetDate));
-  const withDone=dayTasks.map(t=>({task:t,done:isDoneForDate(t,targetDate)}));
+  const dStr=dateStr(targetDate);
+  const withDone=dayTasks.map(t=>({
+    task:t,
+    done:isCalendar
+      ?!!(t.completions&&t.completions[`cal_${dStr}`])
+      :isDoneForDate(t,targetDate)
+  }));
   const sorted=[...withDone].sort((a,b)=>PRIORITY_ORDER[a.task.priority]-PRIORITY_ORDER[b.task.priority]);
   const byPri={high:[],medium:[],low:[]};
   sorted.forEach(x=>byPri[x.task.priority]?.push(x));
@@ -331,7 +336,7 @@ export default function App(){
   const content=(
     <>
       {tab==="home"    && <DayTaskList targetDate={TODAY} tasks={tasks} onToggle={toggleForDate(TODAY)} onTap={openEdit} isMobile={isMobile}/>}
-      {tab==="calendar"&& <CalendarViewWithDate tasks={tasks} onToggle={toggle} onTap={openEdit} isMobile={isMobile}/>}
+      {tab==="calendar"&& <CalendarViewWithDate tasks={tasks} setTasks={setTasks} onTap={openEdit} isMobile={isMobile}/>}
       {["daily","weekly","monthly","adhoc"].includes(tab)&&<TypeView type={tab} tasks={tasks} onToggle={toggleForDate(TODAY)} onTap={openEdit} onAdd={()=>openAdd(tab)} isMobile={isMobile}/>}
     </>
   );
@@ -429,7 +434,7 @@ export default function App(){
 }
 
 // カレンダーは選択日をローカルに持ち、toggleに日付を渡す
-function CalendarViewWithDate({tasks,onToggle,onTap,isMobile}){
+function CalendarViewWithDate({tasks,setTasks,onTap,isMobile}){
   const [viewYear,setViewYear]=useState(TODAY.getFullYear());
   const [viewMonth,setViewMonth]=useState(TODAY.getMonth());
   const [selected,setSelected]=useState(new Date(TODAY));
@@ -445,8 +450,16 @@ function CalendarViewWithDate({tasks,onToggle,onTap,isMobile}){
 
   const selStr=dateStr(selected);
   const CELL=isMobile?44:48;
-  const toggleForSelected=(id)=>onToggle(id,selected);
-
+  const toggleForSelected=(id)=>{
+  setTasks(ts=>ts.map(t=>{
+    if(t.id!==id) return t;
+    const key=`cal_${dateStr(selected)}`;
+    const completions={...(t.completions||{})};
+    if(completions[key]) delete completions[key];
+    else completions[key]=dateStr(selected);
+    return {...t,completions};
+  }));
+};
   return(
     <div>
       <div style={{background:"#fff",borderRadius:isMobile?16:12,border:"1px solid #ECEEF2",padding:isMobile?"16px":"20px",marginBottom:isMobile?20:18,boxShadow:isMobile?"0 1px 4px rgba(0,0,0,0.06)":"none"}}>
@@ -465,8 +478,7 @@ function CalendarViewWithDate({tasks,onToggle,onTap,isMobile}){
             const isSelected=ds===selStr;
             const isT=ds===todayStr;
             const cnt=tasks.filter(t=>isActiveOn(t,d)).length;
-            const dnCnt=tasks.filter(t=>isActiveOn(t,d)&&isDoneForDate(t,d)).length;
-            const isDow0=d.getDay()===0; const isDow6=d.getDay()===6;
+            const dnCnt=tasks.filter(t=>isActiveOn(t,d)&&isDoneForDate(t,d)).length;            const isDow0=d.getDay()===0; const isDow6=d.getDay()===6;
             const allDone=cnt>0&&dnCnt===cnt;
             return(
               <button key={ds} onClick={()=>setSelected(new Date(d))} style={{height:CELL,borderRadius:10,border:"none",cursor:"pointer",background:isSelected?"#1B3A6B":isT?"#EEF3FC":"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,transition:"background 0.12s",WebkitTapHighlightColor:"transparent"}}>
@@ -492,7 +504,7 @@ function CalendarViewWithDate({tasks,onToggle,onTap,isMobile}){
           ))}
         </div>
       </div>
-      <DayTaskList targetDate={selected} tasks={tasks} onToggle={toggleForSelected} onTap={onTap} isMobile={isMobile}/>
+      <DayTaskList targetDate={selected} tasks={tasks} onToggle={toggleForSelected} onTap={onTap} isMobile={isMobile} isCalendar/>
     </div>
   );
 }
